@@ -1,12 +1,9 @@
-# Basic parameters; check that these match your project / environment
 cmake_minimum_required(VERSION 3.10)
 
-# Replace "game" with a name for your project (this is used the name of the output)
-project(game)
+project(chili-tetris)
 
 file(GLOB PROJECT_SOURCE src/*)
 
-# ... and any other files you want in the release here
 set(PROJECT_DISTRIBS LICENSE README.md)
 
 # Build configuration; approach this with caution!
