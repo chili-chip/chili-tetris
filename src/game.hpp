@@ -19,10 +19,14 @@ public:
     void render();
 
 private:
-    // drawing/grid
-    int cell_size = 6; // Size of each cell in pixels 6x6
-    int grid_width = 10; // Width of the Tetris grid in cells
-    int grid_height = 20; // Height of the Tetris grid in cells
+    // grid constants
+    static constexpr int GRID_WIDTH = 10;      // logical width
+    static constexpr int BOARD_HEIGHT = 40;    // logical height (full internal board)
+    static constexpr int VISIBLE_ROWS = 20;    // fully visible rows
+    // We also show half of row index VISIBLE_ROWS (the 21st row 1-based)
+    static constexpr int VISIBLE_OFFSET = 19;   // first fully visible row index (we show lower half of this row)
+
+    int cell_size = 6; // Size of each cell in pixels 6x6c
     Pen empty_cell_color = Pen(0, 0, 0); // Color for empty cells (black)
     Pen grid_line_color = Pen(50, 50, 50); // Color for grid lines (dark gray)
     Pen ui_text_color = Pen(255, 255, 255); // Color for UI text (white)
@@ -30,9 +34,9 @@ private:
     // game state
     bool game_over = false;
     bool game_started = false;
-    Tetrimino current_tetrimino{Tetrimino::random_tetrimino(Point(4, 0))};
-    Tetrimino next_tetrimino{Tetrimino::random_tetrimino(Point(12, 2))};
-    std::array<std::array<TetrominoType, 10>, 20> board; // 10x20 Tetris board; TetrominoType::COUNT == empty
+    Tetrimino current_tetrimino{Tetrimino::random_tetrimino(Point(GRID_WIDTH / 2, 0))};
+    Tetrimino next_tetrimino{Tetrimino::random_tetrimino(Point(GRID_WIDTH + 2, 2))};
+    std::array<std::array<TetrominoType, GRID_WIDTH>, BOARD_HEIGHT> board; // TetrominoType::COUNT == empty
 
     // scoring and progression
     int score = 0;
@@ -49,12 +53,14 @@ private:
 
     // helpers
     bool check_collision(const Tetrimino &t) const;
+    bool check_game_over() const;
     void lock_piece();
     void clear_lines();
     void spawn_next();
     
     // drawing helpers
-    void draw_cell(int x, int y, Pen pen, int gx, int gy) const;
+    void draw_cell(int x, int y, Pen pen, int gx, int gy) const;             // full cell
+    void draw_half_cell(int x, int y, Pen pen, int gx, int gy) const;        // half (top) cell for partial row
     void draw_board(int gx, int gy) const;
     void draw_current_piece(int gx, int gy) const;
     void draw_next(int gx, int gy) const;

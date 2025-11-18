@@ -7,7 +7,7 @@
 using namespace blit;
 
 constexpr int GRID_X = 3;
-constexpr int GRID_Y = 3;
+constexpr int GRID_Y = -3;
 constexpr int DOWN_BUTTON_MULTIPLIER = 10;
 
 // Global game instance
@@ -31,13 +31,13 @@ void update(uint32_t time) {
 
 Tetris::Tetris() {
     // initialize board to empty
-    for (int y = 0; y < grid_height; ++y)
-        for (int x = 0; x < grid_width; ++x)
+    for (int y = 0; y < BOARD_HEIGHT; ++y)
+        for (int x = 0; x < GRID_WIDTH; ++x)
             board[y][x] = TetrominoType::COUNT;
 
-    // initialize pieces
-    current_tetrimino = Tetrimino::random_tetrimino(Point(grid_width / 2, 0));
-    next_tetrimino = Tetrimino::random_tetrimino(Point(grid_width + 2, 2));
+    // spawn piece starting at row 21 (index 21)
+    current_tetrimino = Tetrimino::random_tetrimino(Point(GRID_WIDTH / 2, VISIBLE_OFFSET));
+    next_tetrimino = Tetrimino::random_tetrimino(Point(GRID_WIDTH + 2, 2));
 
     last_time = 0;
     drop_acc = 0;
@@ -48,7 +48,7 @@ bool Tetris::check_collision(const Tetrimino &t) const {
     for (const auto &p : blks) {
         int x = p.x;
         int y = p.y;
-        if (x < 0 || x >= grid_width || y < 0 || y >= grid_height)
+        if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= BOARD_HEIGHT)
             return true;
         if (board[y][x] != TetrominoType::COUNT)
             return true;
@@ -59,7 +59,7 @@ bool Tetris::check_collision(const Tetrimino &t) const {
 void Tetris::lock_piece() {
     auto blks = current_tetrimino.blocks();
     for (const auto &p : blks) {
-        if (p.y >= 0 && p.y < grid_height && p.x >= 0 && p.x < grid_width)
+        if (p.y >= 0 && p.y < BOARD_HEIGHT && p.x >= 0 && p.x < GRID_WIDTH)
             board[p.y][p.x] = current_tetrimino.get_type();
     }
     clear_lines();
@@ -68,9 +68,9 @@ void Tetris::lock_piece() {
 
 void Tetris::clear_lines() {
     int cleared = 0;
-    for (int y = grid_height - 1; y >= 0; --y) {
+    for (int y = BOARD_HEIGHT - 1; y >= 0; --y) {
         bool full = true;
-        for (int x = 0; x < grid_width; ++x) {
+        for (int x = 0; x < GRID_WIDTH; ++x) {
             if (board[y][x] == TetrominoType::COUNT) { full = false; break; }
         }
         if (full) {
@@ -78,7 +78,7 @@ void Tetris::clear_lines() {
             for (int yy = y; yy > 0; --yy)
                 board[yy] = board[yy - 1];
             // empty top row
-            for (int x = 0; x < grid_width; ++x)
+            for (int x = 0; x < GRID_WIDTH; ++x)
                 board[0][x] = TetrominoType::COUNT;
             ++cleared;
             ++y; // re-check same row index after shift
@@ -92,17 +92,25 @@ void Tetris::clear_lines() {
     }
 }
 
+bool Tetris::check_game_over() const {
+    // Check if any blocks occupy the spawn area (row 21 and above)
+    for (int x = 0; x < GRID_WIDTH; ++x) {
+        if (board[VISIBLE_OFFSET][x] != TetrominoType::COUNT)
+            return true;
+    }
+    return false;
+}
+
 void Tetris::spawn_next() {
+    if (check_game_over()) {
+        game_over = true;
+        return;
+    }
     current_tetrimino = next_tetrimino;
-    // center the piece at the top
-    Point spawn_pos(grid_width / 2, 0);
+    Point spawn_pos(GRID_WIDTH / 2, VISIBLE_OFFSET);
     current_tetrimino.set_position(spawn_pos);
     current_tetrimino = Tetrimino(current_tetrimino.get_type(), spawn_pos, current_tetrimino.get_rotation());
-    next_tetrimino = Tetrimino::random_tetrimino(Point(grid_width + 2, 2));
-
-    if (check_collision(current_tetrimino)) {
-        game_over = true;
-    }
+    next_tetrimino = Tetrimino::random_tetrimino(Point(GRID_WIDTH + 2, 2));
 }
 
 void Tetris::update(uint32_t time) {
@@ -170,8 +178,10 @@ void Tetris::render() {
     // layout
     const int gx = GRID_X;
     const int gy = GRID_Y;
-    const int width_px = grid_width * cell_size;
-    const int height_px = grid_height * cell_size;
+    const int width_px = GRID_WIDTH * cell_size;
+    // visible region: lower half of row 20 (index 20) + rows 21..39
+    const int full_rows = BOARD_HEIGHT - (VISIBLE_OFFSET); // rows after the half row
+    const int height_px = full_rows * cell_size + cell_size / 2;
 
     // clear
     screen.pen = Pen(0, 0, 0); // background
@@ -180,17 +190,14 @@ void Tetris::render() {
     // draw background for playfield
     screen.pen = grid_line_color;
     screen.rectangle(Rect(gx-3, gy-3, width_px+5, height_px+5));
-
-    // draw cells
-    for (int y = 0; y < grid_height; ++y) {
-        for (int x = 0; x < grid_width; ++x) {
-            auto cell = board[y][x];
-            if (cell != TetrominoType::COUNT) {
-                screen.pen = get_tetromino_color(cell);
-            } else {
-                screen.pen = empty_cell_color;
-            }
-            screen.rectangle(Rect(gx + x * cell_size, gy + y * cell_size, cell_size - 1, cell_size - 1));
+    
+    // draw board cells
+    for (int r = VISIBLE_OFFSET; r < BOARD_HEIGHT; ++r) {
+        int screen_y = gy + (cell_size/2) + (r - (VISIBLE_OFFSET)) * cell_size;
+        for (int x = 0; x < GRID_WIDTH; ++x) {
+            auto cell = board[r][x];
+            screen.pen = (cell != TetrominoType::COUNT) ? get_tetromino_color(cell) : empty_cell_color;
+            screen.rectangle(Rect(gx + x * cell_size, screen_y, cell_size - 1, cell_size - 1));
         }
     }
 
@@ -198,9 +205,14 @@ void Tetris::render() {
     screen.pen = current_tetrimino.color();
     for (auto &p : current_tetrimino.blocks()) {
         int x = p.x, y = p.y;
-        if (x >= 0 && x < grid_width && y >= 0 && y < grid_height)
-            screen.rectangle(Rect(gx + x * cell_size, gy + y * cell_size, cell_size - 1, cell_size - 1));
+        if (x < 0 || x >= GRID_WIDTH) continue;
+        int screen_y = gy + (cell_size/2) + (y - (VISIBLE_OFFSET + 1)) * cell_size;
+        screen.rectangle(Rect(gx + x * cell_size, screen_y, cell_size - 1, cell_size - 1));
     }
+
+    //draw frame top
+    screen.pen = grid_line_color;
+    screen.rectangle(Rect(0, 0, width_px+5, 3));
 
     // draw next preview
     screen.pen = Pen(255, 255, 255);
@@ -217,7 +229,7 @@ void Tetris::render() {
 
     // draw score & level
     screen.pen = ui_text_color;
-    screen.text(std::string("Score: ") + std::to_string(score), minimal_font, Point(gx + width_px + 8, gy));
+    screen.text(std::string("Score: ") + std::to_string(score), minimal_font, Point(gx + width_px + 8, 3));
 
     if (game_over) {
         screen.pen = Pen(255, 0, 0);
