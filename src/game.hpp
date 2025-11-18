@@ -33,14 +33,12 @@ private:
 
     // game state
     bool game_over = false;
-    bool game_started = false;
     Tetrimino current_tetrimino{Tetrimino::random_tetrimino(Point(GRID_WIDTH / 2, 0))};
     Tetrimino next_tetrimino{Tetrimino::random_tetrimino(Point(GRID_WIDTH + 2, 2))};
     std::array<std::array<TetrominoType, GRID_WIDTH>, BOARD_HEIGHT> board; // TetrominoType::COUNT == empty
 
     // scoring and progression
     int score = 0;
-    int lines_cleared = 0;
 
     // timing
     uint32_t last_time = 0;

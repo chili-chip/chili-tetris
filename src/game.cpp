@@ -30,6 +30,8 @@ void update(uint32_t time) {
 // --- Tetris implementation -------------------------------------------------
 
 Tetris::Tetris() {
+    game_over = false;
+    score = 0;
     // initialize board to empty
     for (int y = 0; y < BOARD_HEIGHT; ++y)
         for (int x = 0; x < GRID_WIDTH; ++x)
@@ -86,7 +88,6 @@ void Tetris::clear_lines() {
     }
 
     if (cleared > 0) {
-        lines_cleared += cleared;
         // simple scoring: 100 points per line
         score += cleared * 100;
     }
@@ -121,6 +122,7 @@ void Tetris::update(uint32_t time) {
     if (game_over) {
         if (pressed(Button::MENU)) {
             // restart game
+            *this = Tetris();
         }
         return;
     }
