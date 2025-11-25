@@ -43,6 +43,9 @@ Point rotate_point_cw(const Point &p) {
 
 // Rotate a tetromino shape (array of 4 points) 90° clockwise
 std::array<Point, 4> rotate_shape_cw(const std::array<Point, 4> &shape) {
+    if (shape == TETROMINOS[static_cast<size_t>(TetrominoType::O)]) {
+        return shape; // O piece does not rotate
+    }
     std::array<Point, 4> out;
     for (size_t i = 0; i < 4; ++i)
         out[i] = rotate_point_cw(shape[i]);

@@ -13,6 +13,8 @@ constexpr int DOWN_BUTTON_MULTIPLIER = 10;
 // Global game instance
 static Tetris game;
 
+bool up_released = true;
+
 void init() {
     set_screen_mode(ScreenMode::hires);
     // seed RNG
@@ -141,20 +143,18 @@ void Tetris::update(uint32_t time) {
             test.move_by(1, 0);
             if (!check_collision(test)) current_tetrimino = test;
             moved = true;
-        } else if (pressed(Button::A)) {
+        } else if (pressed(Button::DPAD_UP) && up_released) {
             Tetrimino test = current_tetrimino;
             test.rotate_cw();
             if (!check_collision(test)) current_tetrimino = test;
             moved = true;
-        } else if (pressed(Button::B)) {
-            Tetrimino test = current_tetrimino;
-            test.rotate_ccw();
-            if (!check_collision(test)) current_tetrimino = test;
-            moved = true;
+            up_released = false;
         }
 
         if (moved) last_input_time = now;
     }
+
+    up_released = !pressed(Button::DPAD_UP);
 
     // gravity
     drop_acc += dt;
