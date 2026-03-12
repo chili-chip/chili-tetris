@@ -1,9 +1,13 @@
-cmake_minimum_required(VERSION 3.11)
+# Basic parameters; check that these match your project / environment
+cmake_minimum_required(VERSION 3.10)
 
-project(chili-tetris)
+# Replace "game" with a name for your project (this is used the name of the output)
+project(chili-tetris LANGUAGES C CXX ASM)
 
-file(GLOB PROJECT_SOURCE src/*)
+# Add your sources here (adding headers is optional, but helps some CMake generators)
+set(PROJECT_SOURCE game.cpp game.hpp)
 
+# ... and any other files you want in the release here
 set(PROJECT_DISTRIBS LICENSE README.md)
 
 # Build configuration; approach this with caution!
@@ -16,6 +20,13 @@ endif()
 find_package (32BLIT CONFIG REQUIRED PATHS ../32blit-sdk $ENV{PATH_32BLIT_SDK})
 
 blit_executable (${PROJECT_NAME} ${PROJECT_SOURCE})
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
+else()
+  set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".elf")
+endif()
+
 blit_assets_yaml (${PROJECT_NAME} assets.yml)
 blit_metadata (${PROJECT_NAME} metadata.yml)
 add_custom_target (flash DEPENDS ${PROJECT_NAME}.flash)
