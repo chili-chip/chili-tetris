@@ -1,109 +1,132 @@
 #include "tetriminos.hpp"
 
-// The seven standard tetromino shapes in a canonical orientation.
-// Coordinates chosen so pieces are roughly centered around the origin for easy rotation.
-const std::array<std::array<Point, 4>, 7> TETROMINOS = {{
-    // I: a horizontal line of 4
-    { Point(-2, 0), Point(-1, 0), Point(0, 0), Point(1, 0) },
+#include <cstdlib>
 
-    // O: 2x2 square
-    { Point(0, 0), Point(1, 0), Point(0, 1), Point(1, 1) },
+namespace {
 
-    // T: T shape with stem down
-    { Point(-1, 0), Point(0, 0), Point(1, 0), Point(0, 1) },
-
-    // S: S shape
-    { Point(0, 0), Point(1, 0), Point(-1, 1), Point(0, 1) },
-
-    // Z: Z shape
-    { Point(-1, 0), Point(0, 0), Point(0, 1), Point(1, 1) },
-
-    // J: J shape (mirror of L)
-    { Point(-1, 0), Point(-1, 1), Point(0, 0), Point(1, 0) },
-
-    // L: L shape
-    { Point(-1, 0), Point(0, 0), Point(1, 0), Point(1, 1) }
+// Spawn orientation of each piece inside its bounding box (y grows downwards).
+// I uses a 4x4 box, O a 4x3 box (centred, never rotates), the rest 3x3.
+const std::array<std::array<Point, 4>, 7> SPAWN_SHAPES = {{
+    {Point(0, 1), Point(1, 1), Point(2, 1), Point(3, 1)}, // I
+    {Point(1, 0), Point(2, 0), Point(1, 1), Point(2, 1)}, // O
+    {Point(1, 0), Point(0, 1), Point(1, 1), Point(2, 1)}, // T
+    {Point(1, 0), Point(2, 0), Point(0, 1), Point(1, 1)}, // S
+    {Point(0, 0), Point(1, 0), Point(1, 1), Point(2, 1)}, // Z
+    {Point(0, 0), Point(0, 1), Point(1, 1), Point(2, 1)}, // J
+    {Point(2, 0), Point(0, 1), Point(1, 1), Point(2, 1)}, // L
 }};
 
-// Colors for each tetromino (I, O, T, S, Z, J, L)
+const std::array<int, 7> BOX_SIZE = {4, 0, 3, 3, 3, 3, 3};
+
+// SRS kick tables, written as in the guideline (y up) and flipped to y down
+// when looked up. Index: 0 = 0->R, 1 = R->0, 2 = R->2, 3 = 2->R,
+// 4 = 2->L, 5 = L->2, 6 = L->0, 7 = 0->L.
+std::array<std::array<Point, 5>, 8> make_kicks(const int table[8][5][2]) {
+    std::array<std::array<Point, 5>, 8> out{};
+    for (int i = 0; i < 8; ++i)
+        for (int k = 0; k < 5; ++k)
+            out[i][k] = Point(table[i][k][0], -table[i][k][1]);
+    return out;
+}
+
+const int JLSTZ_TABLE[8][5][2] = {
+    {{0, 0}, {-1, 0}, {-1, 1}, {0, -2}, {-1, -2}},
+    {{0, 0}, {1, 0}, {1, -1}, {0, 2}, {1, 2}},
+    {{0, 0}, {1, 0}, {1, -1}, {0, 2}, {1, 2}},
+    {{0, 0}, {-1, 0}, {-1, 1}, {0, -2}, {-1, -2}},
+    {{0, 0}, {1, 0}, {1, 1}, {0, -2}, {1, -2}},
+    {{0, 0}, {-1, 0}, {-1, -1}, {0, 2}, {-1, 2}},
+    {{0, 0}, {-1, 0}, {-1, -1}, {0, 2}, {-1, 2}},
+    {{0, 0}, {1, 0}, {1, 1}, {0, -2}, {1, -2}},
+};
+
+const int I_TABLE[8][5][2] = {
+    {{0, 0}, {-2, 0}, {1, 0}, {-2, -1}, {1, 2}},
+    {{0, 0}, {2, 0}, {-1, 0}, {2, 1}, {-1, -2}},
+    {{0, 0}, {-1, 0}, {2, 0}, {-1, 2}, {2, -1}},
+    {{0, 0}, {1, 0}, {-2, 0}, {1, -2}, {-2, 1}},
+    {{0, 0}, {2, 0}, {-1, 0}, {2, 1}, {-1, -2}},
+    {{0, 0}, {-2, 0}, {1, 0}, {-2, -1}, {1, 2}},
+    {{0, 0}, {1, 0}, {-2, 0}, {1, -2}, {-2, 1}},
+    {{0, 0}, {-1, 0}, {2, 0}, {-1, 2}, {2, -1}},
+};
+
+int kick_index(int from, int to) {
+    if (from == 0 && to == 1) return 0;
+    if (from == 1 && to == 0) return 1;
+    if (from == 1 && to == 2) return 2;
+    if (from == 2 && to == 1) return 3;
+    if (from == 2 && to == 3) return 4;
+    if (from == 3 && to == 2) return 5;
+    if (from == 3 && to == 0) return 6;
+    return 7; // 0 -> 3
+}
+
+// Colours for each tetromino (I, O, T, S, Z, J, L). Chili-warm takes on the
+// classic palette so the board reads well on the small OLED.
 const std::array<Pen, 7> TETROMINO_COLORS = {{
-    Pen(0, 255, 255),   // I - cyan
-    Pen(255, 255, 0),   // O - yellow
-    Pen(160, 32, 240),  // T - purple
-    Pen(0, 255, 0),     // S - green
-    Pen(255, 0, 0),     // Z - red
-    Pen(0, 0, 255),     // J - blue
-    Pen(255, 165, 0)    // L - orange
+    Pen(40, 210, 230),  // I - cyan
+    Pen(255, 210, 40),  // O - yellow
+    Pen(170, 70, 230),  // T - purple
+    Pen(80, 210, 60),   // S - green
+    Pen(235, 45, 45),   // Z - chili red
+    Pen(50, 100, 240),  // J - blue
+    Pen(255, 130, 20),  // L - orange
 }};
 
-// Rotate a coordinate 90° clockwise about the origin: (x,y) -> (y, -x)
-Point rotate_point_cw(const Point &p) {
-    return Point(p.y, -p.x);
-}
+} // namespace
 
-// Rotate a tetromino shape (array of 4 points) 90° clockwise
-std::array<Point, 4> rotate_shape_cw(const std::array<Point, 4> &shape) {
-    if (shape == TETROMINOS[static_cast<size_t>(TetrominoType::O)]) {
-        return shape; // O piece does not rotate
-    }
-    std::array<Point, 4> out;
-    for (size_t i = 0; i < 4; ++i)
-        out[i] = rotate_point_cw(shape[i]);
-    return out;
-}
-
-// Return a shape rotated `rotation` times 90° clockwise (rotation may be negative or >3).
-std::array<Point, 4> get_rotated_shape(const std::array<Point, 4> &shape, int rotation) {
-    int r = rotation % 4;
-    if (r < 0)
-        r += 4;
-    std::array<Point, 4> out = shape;
-    for (int i = 0; i < r; ++i)
-        out = rotate_shape_cw(out);
-    return out;
-}
-
-// Convenience: get a tetromino by type and rotation index (0..3)
 std::array<Point, 4> get_tetromino(TetrominoType type, int rotation) {
-    return get_rotated_shape(TETROMINOS[static_cast<size_t>(type)], rotation);
+    const auto idx = static_cast<size_t>(type);
+    std::array<Point, 4> out = SPAWN_SHAPES[idx];
+    const int n = BOX_SIZE[idx];
+    if (n == 0)
+        return out; // O piece does not rotate (issue #2)
+
+    int r = ((rotation % 4) + 4) % 4;
+    for (int i = 0; i < r; ++i)
+        for (auto &p : out)
+            p = Point(n - 1 - p.y, p.x); // 90 degrees clockwise inside the box
+    return out;
+}
+
+const std::array<Point, 5> &get_kicks(TetrominoType type, int from, int to) {
+    static const auto jlstz = make_kicks(JLSTZ_TABLE);
+    static const auto i_kicks = make_kicks(I_TABLE);
+    static const std::array<Point, 5> none = {Point(0, 0), Point(0, 0), Point(0, 0), Point(0, 0), Point(0, 0)};
+    if (type == TetrominoType::O)
+        return none;
+    const auto &table = type == TetrominoType::I ? i_kicks : jlstz;
+    return table[kick_index(from, to)];
 }
 
 Pen get_tetromino_color(TetrominoType type) {
+    if (type == TetrominoType::COUNT)
+        return Pen(0, 0, 0);
     return TETROMINO_COLORS[static_cast<size_t>(type)];
 }
 
-// Tetrimino class implementation
 Tetrimino::Tetrimino(TetrominoType type, Point position, int rotation)
-    : type_(type), rotation_(rotation % 4), position_(position) {
-    if (rotation_ < 0)
-        rotation_ += 4;
-}
-
-Tetrimino Tetrimino::random_tetrimino(Point position) {
-    TetrominoType type = static_cast<TetrominoType>(rand() % static_cast<int>(TetrominoType::COUNT));
-    return Tetrimino(type, position);
-}
-
-TetrominoType Tetrimino::get_type() const { return type_; }
-
-int Tetrimino::get_rotation() const { return rotation_; }
-
-Point Tetrimino::get_position() const { return position_; }
-
-void Tetrimino::set_position(const Point &p) { position_ = p; }
-
-void Tetrimino::move_by(int dx, int dy) { position_ = Point(position_.x + dx, position_.y + dy); }
-
-void Tetrimino::rotate_cw() { rotation_ = (rotation_ + 1) % 4; }
-
-void Tetrimino::rotate_ccw() { rotation_ = (rotation_ + 3) % 4; }
+    : type_(type), rotation_(((rotation % 4) + 4) % 4), position_(position) {}
 
 std::array<Point, 4> Tetrimino::blocks() const {
     auto rel = get_tetromino(type_, rotation_);
-    std::array<Point, 4> out;
-    for (size_t i = 0; i < 4; ++i)
-        out[i] = Point(rel[i].x + position_.x, rel[i].y + position_.y);
-    return out;
+    for (auto &p : rel)
+        p = Point(p.x + position_.x, p.y + position_.y);
+    return rel;
 }
 
-Pen Tetrimino::color() const { return get_tetromino_color(type_); }
+void PieceBag::reset() { index_ = 7; }
+
+TetrominoType PieceBag::next() {
+    if (index_ >= 7) {
+        for (int i = 0; i < 7; ++i)
+            bag_[i] = static_cast<TetrominoType>(i);
+        for (int i = 6; i > 0; --i) {
+            int j = rand() % (i + 1);
+            std::swap(bag_[i], bag_[j]);
+        }
+        index_ = 0;
+    }
+    return bag_[index_++];
+}
