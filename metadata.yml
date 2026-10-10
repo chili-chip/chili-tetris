@@ -1,10 +1,10 @@
-title: chili-tetris
-description: A fun and challenging tetris game with a chili twist!
+title: Chili Tetris
+description: Falling-block puzzler with a chili twist. Hold, ghost piece, high scores, sound effects and a chiptune soundtrack.
 author: TeriyakiGod
 splash:
-  file: assets/no-image.png
+  file: assets/splash.png
 icon:
-  file: assets/no-icon.png
-version: v0.2.0
+  file: assets/icon.png
+version: v1.0.0
 category: game
 url: https://github.com/chili-chip/chili-tetris
