@@ -61,10 +61,10 @@ void piece_preview(TetrominoType type, const Rect &area, int size, bool dim) {
     auto cells = get_tetromino(type, 0);
     int minx = 9, maxx = -9, miny = 9, maxy = -9;
     for (auto &c : cells) {
-        minx = std::min(minx, c.x);
-        maxx = std::max(maxx, c.x);
-        miny = std::min(miny, c.y);
-        maxy = std::max(maxy, c.y);
+        minx = std::min<int>(minx, c.x);
+        maxx = std::max<int>(maxx, c.x);
+        miny = std::min<int>(miny, c.y);
+        maxy = std::max<int>(maxy, c.y);
     }
     int w = (maxx - minx + 1) * size;
     int h = (maxy - miny + 1) * size;
