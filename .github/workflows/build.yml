@@ -84,7 +84,7 @@ jobs:
 
       - name: Checkout Pico SDK
         if: startsWith(matrix.name, 'VGC')
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: chili-chip/pico-sdk
           path: pico-sdk
@@ -92,7 +92,7 @@ jobs:
 
       - name: Checkout Pico Extras
         if: startsWith(matrix.name, 'VGC')
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: chili-chip/pico-extras
           path: pico-extras
