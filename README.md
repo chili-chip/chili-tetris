@@ -1,6 +1,6 @@
 # Chili Tetris
 
-![Build](https://github.com/chili-chip/chili-tetris/workflows/Build/badge.svg)
+[![Build](https://github.com/chili-chip/chili-tetris/actions/workflows/build.yml/badge.svg)](https://github.com/chili-chip/chili-tetris/actions/workflows/build.yml)
 
 A falling-block puzzler with a chili twist, made for the ChiliChip **VGC Zero**
 (RP2350, 128x128 screen) with the [chili-chip fork of the 32blit SDK](https://github.com/chili-chip/32blit-sdk).
