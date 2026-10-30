@@ -346,6 +346,11 @@ void update_running(uint32_t dt) {
         return;
     }
 
+    // Hold the game still while the LEVEL banner covers the well (issue #13),
+    // so the falling piece cannot drop out of sight. MENU still pauses.
+    if (level_banner_timer > 0)
+        return;
+
     Tetris::Input in{};
     in.left = held_btn(Button::DPAD_LEFT);
     in.right = held_btn(Button::DPAD_RIGHT);
